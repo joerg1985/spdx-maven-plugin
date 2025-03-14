@@ -15,6 +15,7 @@ import javax.annotation.Nullable;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Exclusion;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
@@ -77,12 +78,21 @@ public abstract class AbstractDependencyBuilder
     {
         List<DependencyNode> children = node.getChildren();
         logDependencies( children );
+        List<Exclusion> exclusions = node.getExclusions();
+        logExclusions( exclusions );
         String name = "";
 
         for ( DependencyNode childNode : children )
         {
-            name = String.format( "%s:%s:%s", childNode.getArtifact().getGroupId(),
-                    childNode.getArtifact().getArtifactId(), childNode.getArtifact().getVersion() );
+            Artifact artifact = childNode.getArtifact();
+            name = String.format( "%s:%s:%s", artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion() );
+
+            if ( exclusions.stream().anyMatch( e -> Objects.equals( artifact.getGroupId(), e.getGroupId() )
+                    && (Objects.equals( artifact.getArtifactId(), e.getArtifactId() ) || "*".equals( e.getArtifactId() )) ) )
+            {
+                LOG.info( "Skipped dependency due to exclusion " + name );
+                continue;
+            }
             //To keep the repetition-check at O(1)
             if ( usedDependencies.add( name ) )
             {
@@ -169,6 +179,29 @@ public abstract class AbstractDependencyBuilder
             String filePath = dependency.getFile() != null ? dependency.getFile().getAbsolutePath() : "[NONE]";
             String scope = dependency.getScope() != null ? dependency.getScope() : "[NONE]";
             LOG.debug( "ArtifactId: {}, file path: {}, Scope: {}", dependency.getArtifactId(), filePath, scope );
+        }
+    }
+    
+    private void logExclusions( List<Exclusion> exclusions )
+    {
+        if ( !LOG.isDebugEnabled() )
+        {
+            return;
+        }
+        LOG.debug( "Exclusions:" );
+        if ( exclusions == null )
+        {
+            LOG.debug( "\tNull exclusions" );
+            return;
+        }
+        if ( exclusions.isEmpty() )
+        {
+            LOG.debug( "\tZero exclusions" );
+            return;
+        }
+        for ( Exclusion exclusion : exclusions )
+        {
+            LOG.debug( "GroupId: {}, artifactId: {}", exclusion.getGroupId(), exclusion.getArtifactId() );
         }
     }
     
