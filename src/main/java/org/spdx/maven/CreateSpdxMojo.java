@@ -828,7 +828,7 @@ public class CreateSpdxMojo extends AbstractMojo
             ArtifactFilter artifactFilter = getArtifactFilter();
             DependencyNode parentNode = dependencyGraphBuilder.buildDependencyGraph( request, artifactFilter );
 
-            dependencyBuilder.addMavenDependencies( mavenProjectBuilder, session, mavenProject, parentNode, builder.getProjectPackage() );
+            dependencyBuilder.addMavenDependencies( mavenProjectBuilder, session, mavenProject, parentNode, builder.getProjectPackage(), List.of() );
         }
     }
 

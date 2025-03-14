@@ -7,6 +7,7 @@ package org.spdx.maven.utils;
 import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -15,6 +16,7 @@ import javax.annotation.Nullable;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Exclusion;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
@@ -68,25 +70,46 @@ public abstract class AbstractDependencyBuilder
      * @param mavenProject Mave project
      * @param node Dependency node which contains all the dependencies
      * @param pkg SPDX Package to attach the dependencies to
+     * @param exclusions the current list of exclusions
      * @throws InvalidSPDXAnalysisException on errors generating SPDX
      * @throws LicenseMapperException on errors mapping licenses or creating custom licenses
      */
     public void addMavenDependencies( ProjectBuilder mavenProjectBuilder, MavenSession session,
                                                   MavenProject mavenProject, DependencyNode node,
-                                                  CoreModelObject pkg ) throws LicenseMapperException, InvalidSPDXAnalysisException
+                                                  CoreModelObject pkg,
+                                                  List<Exclusion> exclusions ) throws LicenseMapperException, InvalidSPDXAnalysisException
     {
         List<DependencyNode> children = node.getChildren();
         logDependencies( children );
+        List<Exclusion> localExclusions = node.getExclusions();
+        logExclusions( localExclusions );
+        
+        List<Exclusion> mergedExclusions;
+        if ( localExclusions == null ) {
+            mergedExclusions = exclusions;
+        } else {
+            mergedExclusions = new ArrayList<>();
+            mergedExclusions.addAll( localExclusions );
+            mergedExclusions.addAll( exclusions );
+        }
+
         String name = "";
 
         for ( DependencyNode childNode : children )
         {
-            name = String.format( "%s:%s:%s", childNode.getArtifact().getGroupId(),
-                    childNode.getArtifact().getArtifactId(), childNode.getArtifact().getVersion() );
+            Artifact artifact = childNode.getArtifact();
+            name = String.format( "%s:%s:%s", artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion() );
+
+            if ( mergedExclusions.stream().anyMatch( e -> Objects.equals( artifact.getGroupId(), e.getGroupId() )
+                    && (Objects.equals( artifact.getArtifactId(), e.getArtifactId() ) || "*".equals( e.getArtifactId() )) ) )
+            {
+                LOG.info( "Skipped dependency due to exclusion " + name );
+                continue;
+            }
             //To keep the repetition-check at O(1)
             if ( usedDependencies.add( name ) )
             {
-                addMavenDependency( pkg, childNode, mavenProjectBuilder, session, mavenProject );
+                addMavenDependency( pkg, childNode, mavenProjectBuilder, session, mavenProject, mergedExclusions );
             }
             else
             {
@@ -97,7 +120,8 @@ public abstract class AbstractDependencyBuilder
     
     abstract void addMavenDependency( CoreModelObject parentPackage, DependencyNode dependencyNode, 
                                        ProjectBuilder mavenProjectBuilder,
-                                       MavenSession session, MavenProject mavenProject )
+                                       MavenSession session, MavenProject mavenProject,
+                                       List<Exclusion> exclusions )
          throws LicenseMapperException, InvalidSPDXAnalysisException;
     
 
@@ -169,6 +193,29 @@ public abstract class AbstractDependencyBuilder
             String filePath = dependency.getFile() != null ? dependency.getFile().getAbsolutePath() : "[NONE]";
             String scope = dependency.getScope() != null ? dependency.getScope() : "[NONE]";
             LOG.debug( "ArtifactId: {}, file path: {}, Scope: {}", dependency.getArtifactId(), filePath, scope );
+        }
+    }
+    
+    private void logExclusions( List<Exclusion> exclusions )
+    {
+        if ( !LOG.isDebugEnabled() )
+        {
+            return;
+        }
+        LOG.debug( "Exclusions:" );
+        if ( exclusions == null )
+        {
+            LOG.debug( "\tNull exclusions" );
+            return;
+        }
+        if ( exclusions.isEmpty() )
+        {
+            LOG.debug( "\tZero exclusions" );
+            return;
+        }
+        for ( Exclusion exclusion : exclusions )
+        {
+            LOG.debug( "GroupId: {}, artifactId: {}", exclusion.getGroupId(), exclusion.getArtifactId() );
         }
     }
     

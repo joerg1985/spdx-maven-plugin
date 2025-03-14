@@ -24,6 +24,7 @@ import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Contributor;
+import org.apache.maven.model.Exclusion;
 import org.apache.maven.model.License;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
@@ -90,7 +91,8 @@ public class SpdxV3DependencyBuilder
     @Override
     protected void addMavenDependency( CoreModelObject parentPackage, DependencyNode dependencyNode, 
                                        ProjectBuilder mavenProjectBuilder,
-                                       MavenSession session, MavenProject mavenProject )
+                                       MavenSession session, MavenProject mavenProject,
+                                       List<Exclusion> exclusions )
          throws LicenseMapperException, InvalidSPDXAnalysisException
      {
          if ( !(parentPackage instanceof SpdxPackage) )
@@ -122,7 +124,7 @@ public class SpdxV3DependencyBuilder
          LOG.debug( "Added relationship of type {} for {}", relType, dependencyPackage.getName() );
          
          if ( includeTransitiveDependencies ) {
-             addMavenDependencies( mavenProjectBuilder, session, mavenProject, dependencyNode, dependencyPackage );
+             addMavenDependencies( mavenProjectBuilder, session, mavenProject, dependencyNode, dependencyPackage, exclusions );
          }
      }
     

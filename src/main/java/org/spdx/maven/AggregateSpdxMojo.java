@@ -53,7 +53,7 @@ public class AggregateSpdxMojo extends CreateSpdxMojo {
                     ProjectBuildingRequest request = new DefaultProjectBuildingRequest( session.getProjectBuildingRequest() );
                     request.setProject( project );
                     DependencyNode parentNode = dependencyGraphBuilder.buildDependencyGraph( request, null );
-                    dependencyBuilder.addMavenDependencies( mavenProjectBuilder, session, project, parentNode, builder.getProjectPackage() );
+                    dependencyBuilder.addMavenDependencies( mavenProjectBuilder, session, project, parentNode, builder.getProjectPackage(), List.of() );
                 }
             }
         }
